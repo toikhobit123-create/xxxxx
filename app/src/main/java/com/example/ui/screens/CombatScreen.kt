@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.components.gameClickable
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -11,7 +13,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -1022,7 +1023,10 @@ fun CombatScreen(
             Surface(
                 modifier = Modifier
                     .testTag("enemy_hand_count")
-                    .clickable(onClick = { showPowerInfo = true }),
+                    .gameClickable(
+                    onClickLabel = "Xem sức mạnh hai bên",
+                    onClick = { showPowerInfo = true },
+                ),
                 shape = RoundedCornerShape(6.dp),
                 color = Color(0xE8243854),
                 border = BorderStroke(1.3.dp, HextechGold.copy(alpha = 0.85f)),

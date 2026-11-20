@@ -1,8 +1,9 @@
 package com.example.ui.screens
 
+import com.example.ui.components.gameClickable
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -637,7 +638,7 @@ private fun HealerOptionCard(
         modifier = modifier
             .minimumInteractiveComponentSize()
             .testTag(testTag)
-            .clickable(onClick = onClick),
+            .gameClickable(onClick = onClick),
         shape = RoundedCornerShape(GameRadius.card),
         color = SurfaceBase,
         border = BorderStroke(1.dp, accent.copy(alpha = 0.7f)),
@@ -729,7 +730,7 @@ private fun ReinforcementCard(
         modifier = modifier
             .minimumInteractiveComponentSize()
             .testTag("reinf_pkg_${pkg.championId}")
-            .clickable(onClick = onClick),
+            .gameClickable(onClick = onClick),
         shape = RoundedCornerShape(GameRadius.card),
         color = SurfaceBase,
         border = BorderStroke(1.dp, AccentIce.copy(alpha = 0.65f)),

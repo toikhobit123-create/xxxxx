@@ -1,12 +1,15 @@
 package com.example.ui.screens
 
+import com.example.ui.components.gameTapBlocker
+
+import com.example.ui.components.gameClickable
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -123,14 +126,14 @@ fun HandCardInspectOverlay(
         modifier = Modifier
             .fillMaxSize()
             .zIndex(60f)
-            .clickable(onClick = onDismiss)
+            .gameClickable(onClickLabel = "Đóng", onClick = onDismiss)
     ) {
         Surface(
             modifier = Modifier
                 .align(Alignment.Center)
                 .offset(y = offsetY)
                 .widthIn(min = minWidth, max = maxWidth)
-                .clickable(enabled = false, onClick = {}),
+                .gameTapBlocker(),
             shape = RoundedCornerShape(GameRadius.panel),
             color = SurfaceOverlay,
             border = BorderStroke(1.dp, if (canPlay) AccentIce else BorderGoldMuted),
@@ -211,14 +214,14 @@ fun UnitInspectOverlay(
         modifier = Modifier
             .fillMaxSize()
             .zIndex(65f)
-            .clickable(onClick = onDismiss)
+            .gameClickable(onClickLabel = "Đóng", onClick = onDismiss)
     ) {
         Surface(
             modifier = Modifier
                 .align(if (unit.ownerIsPlayer) Alignment.CenterEnd else Alignment.CenterStart)
                 .padding(horizontal = sidePadding)
                 .widthIn(min = minWidth, max = maxWidth)
-                .clickable(enabled = false, onClick = {}),
+                .gameTapBlocker(),
             shape = RoundedCornerShape(GameRadius.panel),
             color = SurfaceOverlay,
             border = BorderStroke(1.dp, BorderGoldMuted),
@@ -290,14 +293,14 @@ fun EmotePickerOverlay(
         modifier = Modifier
             .fillMaxSize()
             .zIndex(62f)
-            .clickable(onClick = onDismiss)
+            .gameClickable(onClickLabel = "Đóng", onClick = onDismiss)
     ) {
         Surface(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = safeStartPadding, bottom = bottomPadding)
                 .widthIn(max = 320.dp)
-                .clickable(enabled = false, onClick = {}),
+                .gameTapBlocker(),
             shape = RoundedCornerShape(GameRadius.panel),
             color = SurfaceOverlay,
             border = BorderStroke(1.dp, BorderGoldMuted),
@@ -805,7 +808,7 @@ fun ChampionLevelUpBannerOverlay(
             .zIndex(88f)
             .background(BgDeep.copy(alpha = 0.72f))
             .testTag("champion_level_up_overlay")
-            .clickable(onClick = onDismiss),
+            .gameClickable(onClickLabel = "Đóng", onClick = onDismiss),
         contentAlignment = Alignment.Center
     ) {
         Surface(

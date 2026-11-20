@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.ui.components.gameClickable
+
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
@@ -305,7 +307,7 @@ fun FacetedNexusCrystal(
             .then(
                 if (onClick != null) Modifier
                     .minimumInteractiveComponentSize()
-                    .clickable(onClick = onClick)
+                    .gameClickable(onClick = onClick)
                 else Modifier
             )
     ) {
@@ -603,7 +605,7 @@ private fun ArenaSingleNexusOverlay(
                 )
                 .testTag(hpTestTag)
                 .semantics { contentDescription = descLabel }
-                .clickable(onClick = onClick)
+                .gameClickable(onClick = onClick)
         ) {
             // Subtle damage pulse aura over the painted Nexus gem when taking damage
             if (hitDelta > 0) {
@@ -898,6 +900,7 @@ fun RightManaActionDial(
 
     val btnInteraction = remember { MutableInteractionSource() }
     val btnPressed by btnInteraction.collectIsPressedAsState()
+    val onTapHaptic = rememberGameTapFeedback()
     val pressScale by animateFloatAsState(
         targetValue = if (btnPressed) 0.93f else 1f,
         animationSpec = spring(),
@@ -1062,7 +1065,7 @@ fun RightManaActionDial(
                     .align(Alignment.CenterStart)
                     .offset(x = 4.dp, y = -dialHeight * 0.20f)
                     .size(48.dp)
-                    .clickable(enabled = isPlayerPriority && combat.spellStack.isEmpty(), onClick = onCancelAttack),
+                    .gameClickable(enabled = isPlayerPriority && combat.spellStack.isEmpty(), onClick = onCancelAttack),
                 shape = CircleShape,
                 color = Color(0xFF28181D),
                 border = BorderStroke(1.8.dp, CrimsonNexus),
@@ -1133,7 +1136,7 @@ fun RightManaActionDial(
                         if (canInitiateAttack) {
                             Modifier
                                 .testTag("enter_attack_button")
-                                .clickable(onClick = onEnterAttack)
+                                .gameClickable(ripple = false, onClick = onEnterAttack)
                         } else {
                             Modifier
                         }
@@ -1400,7 +1403,10 @@ fun RightManaActionDial(
                     enabled = btnEnabled,
                     interactionSource = btnInteraction,
                     indication = null,
-                    onClick = btnAction
+                    onClick = {
+                        onTapHaptic()
+                        btnAction()
+                    }
                 ),
             shape = CircleShape,
             color = Color.Transparent,

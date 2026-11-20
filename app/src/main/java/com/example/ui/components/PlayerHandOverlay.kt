@@ -19,6 +19,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -59,6 +61,7 @@ fun <T> PlayerHandOverlay(
     modifier: Modifier = Modifier,
     cardContent: @Composable (card: T, isExpanded: Boolean, isDragging: Boolean, cardWidth: Dp, cardHeight: Dp) -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     val currentCards by rememberUpdatedState(cards)
     val currentCanDrag by rememberUpdatedState(canDragCards)
     val currentIsExpanded by rememberUpdatedState(isExpanded)
@@ -89,8 +92,10 @@ fun <T> PlayerHandOverlay(
                     .testTag("player_hand_dismiss_scrim")
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = null
+                        indication = null,
+                        onClickLabel = "Đóng bàn tay"
                     ) {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextClick)
                         onExpandedChange(false)
                     }
             )
