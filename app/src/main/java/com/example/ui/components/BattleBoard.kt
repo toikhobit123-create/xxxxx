@@ -2,8 +2,15 @@ package com.example.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -40,6 +47,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +60,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
@@ -935,6 +945,26 @@ private fun FloatingSpellStackLane(
     onInspectEntry: (SpellStackEntry) -> Unit,
     onResolveStack: () -> Unit
 ) {
+    val stackAnim = rememberInfiniteTransition(label = "stack_medallion_orbit")
+    val orbitAngle by stackAnim.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2600, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "stack_orbit_angle"
+    )
+    val pulseScale by stackAnim.animateFloat(
+        initialValue = 0.96f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "stack_pulse_scale"
+    )
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -942,9 +972,24 @@ private fun FloatingSpellStackLane(
         stack.take(5).forEach { item ->
             val ringColor = if (item.sourceIsPlayer) ArcaneCyan else CrimsonNexus
             val portraitRes = cardPortraitRes(item.card.id)
+            val entryScale = remember(item.id) { Animatable(0.55f) }
+            LaunchedEffect(item.id) {
+                entryScale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                )
+            }
             Box(
                 modifier = Modifier
                     .size(medallionSize)
+                    .graphicsLayer {
+                        val combinedScale = entryScale.value * if (isPreview) 1f else pulseScale
+                        scaleX = combinedScale
+                        scaleY = combinedScale
+                    }
                     .testTag("spell_stack_entry_${item.card.id}")
                     .clip(CircleShape)
                     .background(Color(0xEE223656))
@@ -969,6 +1014,26 @@ private fun FloatingSpellStackLane(
                         contentDescription = item.card.name,
                         tint = if (item.sourceIsPlayer) ArcaneCyan else CrimsonNexus,
                         modifier = Modifier.size(medallionSize * 0.48f)
+                    )
+                }
+
+                // Rotating glowing arcane rune arc around each queued spell/skill medallion
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val strokeW = 2.dp.toPx()
+                    val arcColor = if (isPreview) HextechGoldBright else ringColor
+                    drawArc(
+                        color = arcColor.copy(alpha = 0.85f),
+                        startAngle = orbitAngle,
+                        sweepAngle = 72f,
+                        useCenter = false,
+                        style = Stroke(width = strokeW, cap = StrokeCap.Round)
+                    )
+                    drawArc(
+                        color = HextechGoldBright.copy(alpha = 0.72f),
+                        startAngle = orbitAngle + 180f,
+                        sweepAngle = 54f,
+                        useCenter = false,
+                        style = Stroke(width = strokeW, cap = StrokeCap.Round)
                     )
                 }
 

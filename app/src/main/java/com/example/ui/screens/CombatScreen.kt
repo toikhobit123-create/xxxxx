@@ -2,7 +2,6 @@ package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -13,28 +12,33 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.EmojiEmotions
-import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.EmojiEmotions
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -45,6 +49,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,9 +61,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -67,12 +74,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.engine.CombatPhase
 import com.example.engine.CombatState
 import com.example.engine.PriorityHolder
+import com.example.engine.SpellStackEntry
 import com.example.model.CardCatalog
 import com.example.model.CardEffectType
 import com.example.model.CardType
@@ -88,26 +98,21 @@ import com.example.ui.components.FilmGrainOverlay
 import com.example.ui.components.FreljordBattlefieldBackground
 import com.example.ui.components.HandCardView
 import com.example.ui.components.PlayerHandOverlay
+import com.example.ui.components.RightManaActionDial
+import com.example.ui.components.SpellSkillEffectOverlay
+import com.example.ui.components.SpellSkillVfxEvent
 import com.example.ui.components.StackedDeckPile
-import com.example.ui.components.TacticalManaActionColumn
 import com.example.ui.components.UnitToken
-import com.example.ui.theme.AccentGold
-import com.example.ui.theme.AccentIce
-import com.example.ui.theme.BgDeep
-import com.example.ui.theme.BorderGoldMuted
-import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.CinzelFontFamily
-import com.example.ui.theme.GameRadius
-import com.example.ui.theme.GameSpacing
-import com.example.ui.theme.PlusJakartaSansFamily
-import com.example.ui.theme.SemanticAttack
-import com.example.ui.theme.SemanticDanger
-import com.example.ui.theme.SurfaceBase
-import com.example.ui.theme.SurfaceElevated
-import com.example.ui.theme.SurfaceOverlay
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.statNumericStyle
+import com.example.ui.components.fantasyHeadingStyle
+import com.example.ui.components.tabularStatStyle
+import com.example.ui.theme.ArcaneCyan
+import com.example.ui.theme.CrimsonNexus
+import com.example.ui.theme.DarkButtonInk
+import com.example.ui.theme.HextechGold
+import com.example.ui.theme.HextechGoldBright
+import com.example.ui.theme.LegendaryAmber
+import com.example.ui.theme.MutedSilver
+import com.example.ui.theme.ParchmentWhite
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -277,12 +282,172 @@ fun CombatScreen(
 
     // Drop target bounds in root coordinates
     var rootOrigin by remember { mutableStateOf(Offset.Zero) }
+    var rootSize by remember { mutableStateOf(IntSize.Zero) }
     var playerBenchBounds by remember { mutableStateOf(Rect.Zero) }
     var sharedBattlefieldBounds by remember { mutableStateOf(Rect.Zero) }
     val enemyAttackerBounds = remember { mutableStateMapOf<String, Rect>() }
     val enemyUnitBounds = remember { mutableStateMapOf<String, Rect>() }
     val playerUnitBounds = remember { mutableStateMapOf<String, Rect>() }
     var enemyNexusBounds by remember { mutableStateOf(Rect.Zero) }
+
+    // Spell & Skill VFX event queue + snapshots
+    val activeSpellVfx = remember { mutableStateListOf<SpellSkillVfxEvent>() }
+    var vfxSeq by remember { mutableIntStateOf(0) }
+    var lastPlayerTargetHint by remember { mutableStateOf<Pair<String, String?>?>(null) }
+    var vfxTrackingInitialized by remember { mutableStateOf(false) }
+    var prevSpellStackSnapshot by remember { mutableStateOf<List<SpellStackEntry>>(emptyList()) }
+    var prevPlayerGraveyardSize by remember { mutableIntStateOf(0) }
+    var prevEnemyGraveyardSize by remember { mutableIntStateOf(0) }
+    var prevPlayerBoardIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var prevEnemyBoardIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    fun resolveTargetNorm(targetUnitId: String?): Offset? {
+        if (targetUnitId == null || rootSize.width <= 0 || rootSize.height <= 0) return null
+        val rawId = if (targetUnitId.contains("|")) targetUnitId.substringAfter("|") else targetUnitId
+        val rect = when (rawId) {
+            "ENEMY_NEXUS", "NEXUS" -> enemyNexusBounds.takeIf { it != Rect.Zero }
+            else -> enemyUnitBounds[rawId] ?: playerUnitBounds[rawId]
+        } ?: return null
+        val localCenter = rect.center - rootOrigin
+        return Offset(
+            x = (localCenter.x / rootSize.width.toFloat()).coerceIn(0.05f, 0.95f),
+            y = (localCenter.y / rootSize.height.toFloat()).coerceIn(0.05f, 0.95f)
+        )
+    }
+
+    LaunchedEffect(
+        combat.spellStack,
+        combat.playerGraveyard.size,
+        combat.enemyGraveyard.size,
+        combat.playerBoard,
+        combat.enemyBoard
+    ) {
+        val currentPlayerIds = combat.playerBoard.map { it.instanceId }.toSet()
+        val currentEnemyIds = combat.enemyBoard.map { it.instanceId }.toSet()
+
+        if (!vfxTrackingInitialized) {
+            prevSpellStackSnapshot = combat.spellStack
+            prevPlayerGraveyardSize = combat.playerGraveyard.size
+            prevEnemyGraveyardSize = combat.enemyGraveyard.size
+            prevPlayerBoardIds = currentPlayerIds
+            prevEnemyBoardIds = currentEnemyIds
+            vfxTrackingInitialized = true
+            return@LaunchedEffect
+        }
+
+        val currentStackIds = combat.spellStack.map { it.id }.toSet()
+        val resolvedFromStack = prevSpellStackSnapshot
+            .filterNot { it.id in currentStackIds }
+            .reversed()
+
+        val handledPlayerIds = mutableMapOf<String, Int>()
+        val handledEnemyIds = mutableMapOf<String, Int>()
+        val newEvents = mutableListOf<SpellSkillVfxEvent>()
+
+        resolvedFromStack.forEach { entry ->
+            val targetMap = if (entry.sourceIsPlayer) handledPlayerIds else handledEnemyIds
+            targetMap[entry.card.id] = (targetMap[entry.card.id] ?: 0) + 1
+            vfxSeq++
+            newEvents += SpellSkillVfxEvent(
+                id = "vfx_${vfxSeq}_${entry.card.id}",
+                card = entry.card,
+                sourceIsPlayer = entry.sourceIsPlayer,
+                targetCenterNorm = resolveTargetNorm(entry.targetUnitId),
+                isSkill = entry.card.spellSpeed == SpellSpeed.SKILL
+            )
+        }
+
+        val safePlayerStart = prevPlayerGraveyardSize.coerceAtMost(combat.playerGraveyard.size)
+        if (combat.playerGraveyard.size > safePlayerStart) {
+            combat.playerGraveyard.subList(safePlayerStart, combat.playerGraveyard.size).forEach { card ->
+                if (card.type == CardType.SPELL || card.type == CardType.CURSE) {
+                    val remainingSkip = handledPlayerIds[card.id] ?: 0
+                    if (remainingSkip > 0) {
+                        handledPlayerIds[card.id] = remainingSkip - 1
+                    } else {
+                        val hintTarget = lastPlayerTargetHint?.takeIf { it.first == card.id }?.second
+                        if (lastPlayerTargetHint?.first == card.id) {
+                            lastPlayerTargetHint = null
+                        }
+                        vfxSeq++
+                        newEvents += SpellSkillVfxEvent(
+                            id = "vfx_${vfxSeq}_${card.id}",
+                            card = card,
+                            sourceIsPlayer = true,
+                            targetCenterNorm = resolveTargetNorm(hintTarget),
+                            isSkill = card.spellSpeed == SpellSpeed.SKILL
+                        )
+                    }
+                }
+            }
+        }
+
+        val safeEnemyStart = prevEnemyGraveyardSize.coerceAtMost(combat.enemyGraveyard.size)
+        if (combat.enemyGraveyard.size > safeEnemyStart) {
+            combat.enemyGraveyard.subList(safeEnemyStart, combat.enemyGraveyard.size).forEach { card ->
+                if (card.type == CardType.SPELL || card.type == CardType.CURSE) {
+                    val remainingSkip = handledEnemyIds[card.id] ?: 0
+                    if (remainingSkip > 0) {
+                        handledEnemyIds[card.id] = remainingSkip - 1
+                    } else {
+                        vfxSeq++
+                        newEvents += SpellSkillVfxEvent(
+                            id = "vfx_${vfxSeq}_${card.id}",
+                            card = card,
+                            sourceIsPlayer = false,
+                            targetCenterNorm = null,
+                            isSkill = card.spellSpeed == SpellSpeed.SKILL
+                        )
+                    }
+                }
+            }
+        }
+
+        val onSummonSkillCardIds = setOf(
+            "card_crystal_stormbird",
+            "card_flame_eyed_caprine",
+            "card_rhasa",
+            "card_rumul",
+            "card_icevale_archer"
+        )
+        combat.playerBoard
+            .filter { it.instanceId !in prevPlayerBoardIds && it.template.id in onSummonSkillCardIds }
+            .forEach { u ->
+                vfxSeq++
+                newEvents += SpellSkillVfxEvent(
+                    id = "vfx_${vfxSeq}_${u.template.id}",
+                    card = u.template,
+                    sourceIsPlayer = true,
+                    targetCenterNorm = resolveTargetNorm(u.instanceId),
+                    isSkill = true
+                )
+            }
+        combat.enemyBoard
+            .filter { it.instanceId !in prevEnemyBoardIds && it.template.id in onSummonSkillCardIds }
+            .forEach { u ->
+                vfxSeq++
+                newEvents += SpellSkillVfxEvent(
+                    id = "vfx_${vfxSeq}_${u.template.id}",
+                    card = u.template,
+                    sourceIsPlayer = false,
+                    targetCenterNorm = resolveTargetNorm(u.instanceId),
+                    isSkill = true
+                )
+            }
+
+        if (newEvents.isNotEmpty()) {
+            activeSpellVfx.addAll(newEvents)
+            while (activeSpellVfx.size > 3) {
+                activeSpellVfx.removeAt(0)
+            }
+        }
+
+        prevSpellStackSnapshot = combat.spellStack
+        prevPlayerGraveyardSize = combat.playerGraveyard.size
+        prevEnemyGraveyardSize = combat.enemyGraveyard.size
+        prevPlayerBoardIds = currentPlayerIds
+        prevEnemyBoardIds = currentEnemyIds
+    }
 
     LaunchedEffect(combat.attackingUnitIds) {
         val activeSet = combat.attackingUnitIds.toSet()
@@ -310,6 +475,11 @@ fun CombatScreen(
 
     val latestCombat by rememberUpdatedState(combat)
 
+    val dispatchTargetedCard: (HandCardInstance, String?) -> Unit = { card, targetId ->
+        lastPlayerTargetHint = card.template.id to targetId
+        onPlayTargetedCard(card.instanceId, targetId)
+    }
+
     val triggerCardPlayOrTargeting: (HandCardInstance, Offset?) -> Unit = { card, pointer ->
         val c = latestCombat
         val enemyTargets = c.enemyBoard.filter { it.template.type != CardType.LANDMARK }
@@ -329,12 +499,12 @@ fun CombatScreen(
         when {
             card.template.type == CardType.EQUIPMENT || card.template.id == "card_brightsteel_protector" -> {
                 when {
-                    hitAllyId != null -> onPlayTargetedCard(card.instanceId, hitAllyId)
+                    hitAllyId != null -> dispatchTargetedCard(card, hitAllyId)
                     allyTargets.isEmpty() -> {
                         if (card.template.type == CardType.EQUIPMENT) {
                             dragWarningText = "Cần có đồng minh trên bàn để trang bị!"
                         } else {
-                            onPlayTargetedCard(card.instanceId, null)
+                            dispatchTargetedCard(card, null)
                         }
                     }
                     else -> {
@@ -346,9 +516,9 @@ fun CombatScreen(
             card.template.effectType == CardEffectType.DEAL_DAMAGE_ANY ||
                 card.template.effectType == CardEffectType.DRAIN -> {
                 when {
-                    hitEnemyNexus -> onPlayTargetedCard(card.instanceId, "ENEMY_NEXUS")
-                    hitEnemyId != null -> onPlayTargetedCard(card.instanceId, hitEnemyId)
-                    hitAllyId != null -> onPlayTargetedCard(card.instanceId, hitAllyId)
+                    hitEnemyNexus -> dispatchTargetedCard(card, "ENEMY_NEXUS")
+                    hitEnemyId != null -> dispatchTargetedCard(card, hitEnemyId)
+                    hitAllyId != null -> dispatchTargetedCard(card, hitAllyId)
                     else -> {
                         // Luôn mở chế độ chọn mục tiêu để người chơi tự chọn quân địch hoặc Nhà Chính địch
                         pendingTargetCard = card
@@ -364,12 +534,12 @@ fun CombatScreen(
                 when {
                     enemyTargets.isEmpty() -> {
                         if (card.template.effectType == CardEffectType.ANIVIA_CHAMPION_SPELL) {
-                            onPlayTargetedCard(card.instanceId, null)
+                            dispatchTargetedCard(card, null)
                         } else {
                             dragWarningText = "Không có kẻ địch hợp lệ để chọn mục tiêu!"
                         }
                     }
-                    hitEnemyId != null -> onPlayTargetedCard(card.instanceId, hitEnemyId)
+                    hitEnemyId != null -> dispatchTargetedCard(card, hitEnemyId)
                     else -> {
                         // Bắt buộc người chơi bấm chọn mục tiêu kể cả khi chỉ có 1 kẻ địch
                         pendingTargetCard = card
@@ -390,7 +560,7 @@ fun CombatScreen(
                         dragWarningText = "Không có đồng minh hợp lệ để chọn mục tiêu!"
                     }
                     hitAllyId != null && validAllies.any { it.instanceId == hitAllyId } ->
-                        onPlayTargetedCard(card.instanceId, hitAllyId)
+                        dispatchTargetedCard(card, hitAllyId)
                     else -> {
                         pendingTargetCard = card
                         pendingFirstUnitId = null
@@ -412,7 +582,7 @@ fun CombatScreen(
                     }
                 }
             }
-            else -> onPlayTargetedCard(card.instanceId, null)
+            else -> dispatchTargetedCard(card, null)
         }
     }
 
@@ -584,7 +754,10 @@ fun CombatScreen(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .onGloballyPositioned { rootOrigin = it.positionInRoot() }
+            .onGloballyPositioned {
+                rootOrigin = it.positionInRoot()
+                rootSize = it.size
+            }
             .clipToBounds()
     ) {
         val vw = { percent: Float -> maxWidth * (percent / 100f) }
@@ -641,12 +814,12 @@ fun CombatScreen(
                 if (activePendingCard.template.effectType == CardEffectType.SINGLE_COMBAT_STRIKE) {
                     val allyId = pendingFirstUnitId
                     if (allyId != null) {
-                        onPlayTargetedCard(activePendingCard.instanceId, "$allyId|${unit.instanceId}")
+                        dispatchTargetedCard(activePendingCard, "$allyId|${unit.instanceId}")
                         pendingTargetCard = null
                         pendingFirstUnitId = null
                     }
                 } else {
-                    onPlayTargetedCard(activePendingCard.instanceId, unit.instanceId)
+                    dispatchTargetedCard(activePendingCard, unit.instanceId)
                     pendingTargetCard = null
                     pendingFirstUnitId = null
                 }
@@ -693,7 +866,7 @@ fun CombatScreen(
                 if (activePendingCard.template.effectType == CardEffectType.SINGLE_COMBAT_STRIKE) {
                     pendingFirstUnitId = unit.instanceId
                 } else {
-                    onPlayTargetedCard(activePendingCard.instanceId, unit.instanceId)
+                    dispatchTargetedCard(activePendingCard, unit.instanceId)
                     pendingTargetCard = null
                     pendingFirstUnitId = null
                 }
@@ -838,83 +1011,73 @@ fun CombatScreen(
         }
 
         // LAYER 3: Top-Left Opponent Nameplate + Hand Count + Match Info
-        val enemyPriorityBorder by animateColorAsState(
-            targetValue = if (combat.priorityHolder == PriorityHolder.ENEMY) SemanticDanger else BorderSubtle,
-            animationSpec = tween(durationMillis = 150),
-            label = "enemy_hud_border"
-        )
         Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = safeStart + GameSpacing.sm, top = safeTop + GameSpacing.sm)
+                .padding(start = safeStart + 8.dp, top = safeTop + 6.dp)
                 .zIndex(20f),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(GameSpacing.xs)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Surface(
                 modifier = Modifier
                     .testTag("enemy_hand_count")
                     .clickable(onClick = { showPowerInfo = true }),
-                shape = RoundedCornerShape(GameRadius.control),
-                color = SurfaceOverlay,
-                border = BorderStroke(1.dp, enemyPriorityBorder),
-                shadowElevation = 0.dp
+                shape = RoundedCornerShape(6.dp),
+                color = Color(0xE8243854),
+                border = BorderStroke(1.3.dp, HextechGold.copy(alpha = 0.85f)),
+                shadowElevation = 6.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = GameSpacing.sm, vertical = GameSpacing.xs),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(GameSpacing.sm)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
                         text = combat.encounterNode.enemyName,
-                        fontFamily = CinzelFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = (descFontSize.value * 0.96f).coerceIn(10f, 13.5f).sp,
-                        color = TextPrimary,
+                        style = fantasyHeadingStyle(
+                            fontSize = (descFontSize.value * 0.96f).coerceIn(10f, 13.5f).sp,
+                            color = ParchmentWhite
+                        ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.widthIn(max = vw(13f))
                     )
                     Surface(
-                        shape = RoundedCornerShape(GameRadius.badge),
-                        color = SurfaceElevated,
-                        border = BorderStroke(1.dp, BorderSubtle)
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xFF203A5C),
+                        border = BorderStroke(0.8.dp, ArcaneCyan.copy(alpha = 0.7f))
                     ) {
                         Text(
-                            text = "Bài: ${combat.enemyHandCount}",
-                            style = statNumericStyle(
+                            text = "Bài:${combat.enemyHandCount}",
+                            style = tabularStatStyle(
                                 fontSize = (descFontSize.value * 0.84f).coerceAtLeast(9f).sp,
-                                color = AccentIce
+                                color = ArcaneCyan
                             ),
-                            modifier = Modifier.padding(horizontal = GameSpacing.xs, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                         )
                     }
                 }
             }
 
-            // Match Info 48.dp accessible touch target with crisp outlined badge
-            Box(
+            // Match Info circular badge
+            Surface(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(34.dp)
+                    .minimumInteractiveComponentSize()
                     .testTag("match_info_button")
                     .clickable { showMatchInfoDialog = true },
-                contentAlignment = Alignment.Center
+                shape = CircleShape,
+                color = Color(0xD9273D5E),
+                border = BorderStroke(1.2.dp, HextechGold.copy(alpha = 0.8f))
             ) {
-                Surface(
-                    modifier = Modifier.size(34.dp),
-                    shape = CircleShape,
-                    color = SurfaceOverlay,
-                    border = BorderStroke(1.dp, BorderGoldMuted),
-                    shadowElevation = 0.dp
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Outlined.Info,
-                            contentDescription = "Thông tin trận đấu",
-                            tint = AccentIce,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Thông Tin Trận Đấu",
+                        tint = ArcaneCyan,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
         }
@@ -924,10 +1087,10 @@ fun CombatScreen(
             Row(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = safeTop + GameSpacing.xs)
+                    .padding(top = safeTop + 4.dp)
                     .zIndex(20f),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(GameSpacing.sm)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (combat.enemyHandCount > 0) {
                     EnemyFannedCardBacks(
@@ -947,47 +1110,46 @@ fun CombatScreen(
             }
         }
 
-        // LAYER 4: Top-Right Compact Tactical Status Pill (Power, Foe Mana, Round, Forfeit)
+        // LAYER 4: Top-Right Compact PoC Status Pill (⚡ Power, Foe Mana, Round, Forfeit)
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(end = safeEnd + GameSpacing.sm, top = safeTop + GameSpacing.sm)
+                .padding(end = safeEnd + 8.dp, top = safeTop + 6.dp)
                 .zIndex(20f),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(GameSpacing.xs)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Surface(
-                shape = RoundedCornerShape(GameRadius.card),
-                color = SurfaceOverlay,
-                border = BorderStroke(1.dp, BorderGoldMuted),
-                shadowElevation = 0.dp
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xE8243854),
+                border = BorderStroke(1.2.dp, HextechGold.copy(alpha = 0.75f)),
+                shadowElevation = 6.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = GameSpacing.sm, vertical = GameSpacing.xs),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(GameSpacing.sm)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (combat.encounterNode.enemyPowerTitle.isNotBlank()) {
                         Row(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(GameRadius.badge))
+                                .clip(RoundedCornerShape(6.dp))
                                 .clickable { showPowerInfo = true }
-                                .padding(horizontal = GameSpacing.xs, vertical = 2.dp),
+                                .padding(horizontal = 3.dp, vertical = 1.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(GameSpacing.xs)
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Bolt,
-                                contentDescription = "Sức mạnh địch",
-                                tint = SemanticAttack,
+                                imageVector = Icons.Default.Bolt,
+                                contentDescription = "Sức Mạnh Địch",
+                                tint = LegendaryAmber,
                                 modifier = Modifier.size(13.dp)
                             )
                             Text(
                                 text = combat.encounterNode.enemyPowerTitle,
-                                fontFamily = PlusJakartaSansFamily,
                                 fontSize = (descFontSize.value * 0.88f).coerceAtLeast(9.5f).sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary,
+                                color = ParchmentWhite,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.widthIn(max = vw(16f))
@@ -997,51 +1159,46 @@ fun CombatScreen(
 
                     Text(
                         text = "Địch ${combat.enemyMana}/${combat.enemyMaxMana}",
-                        style = statNumericStyle(
+                        style = tabularStatStyle(
                             fontSize = (descFontSize.value * 0.88f).coerceAtLeast(9.5f).sp,
-                            color = TextSecondary
+                            color = Color(0xFF93C5FD)
                         )
                     )
 
                     Surface(
-                        shape = RoundedCornerShape(GameRadius.badge),
-                        color = SurfaceElevated,
-                        border = BorderStroke(1.dp, BorderGoldMuted)
+                        shape = RoundedCornerShape(6.dp),
+                        color = HextechGold.copy(alpha = 0.22f),
+                        border = BorderStroke(0.8.dp, HextechGoldBright)
                     ) {
                         Text(
                             text = "V${combat.round}",
-                            style = statNumericStyle(
+                            style = tabularStatStyle(
                                 fontSize = (descFontSize.value * 0.86f).coerceAtLeast(9.5f).sp,
-                                color = AccentGold
+                                color = HextechGoldBright
                             ),
-                            modifier = Modifier.padding(horizontal = GameSpacing.xs, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
                         )
                     }
                 }
             }
 
-            // Compact Forfeit / Surrender 48.dp touch target
-            Box(
+            // Compact Forfeit / Surrender button
+            Surface(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(34.dp)
+                    .minimumInteractiveComponentSize()
                     .clickable { showForfeitConfirm = true },
-                contentAlignment = Alignment.Center
+                shape = CircleShape,
+                color = Color(0xD92B4368),
+                border = BorderStroke(1.2.dp, CrimsonNexus.copy(alpha = 0.7f))
             ) {
-                Surface(
-                    modifier = Modifier.size(34.dp),
-                    shape = CircleShape,
-                    color = SurfaceOverlay,
-                    border = BorderStroke(1.dp, SemanticDanger.copy(alpha = 0.65f)),
-                    shadowElevation = 0.dp
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Outlined.Flag,
-                            contentDescription = "Đầu hàng",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(15.dp)
-                        )
-                    }
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Flag,
+                        contentDescription = "Đầu Hàng",
+                        tint = MutedSilver,
+                        modifier = Modifier.size(15.dp)
+                    )
                 }
             }
         }
@@ -1061,7 +1218,7 @@ fun CombatScreen(
                     (pending.template.effectType == CardEffectType.DEAL_DAMAGE_ANY ||
                         pending.template.effectType == CardEffectType.DRAIN)
                 ) {
-                    onPlayTargetedCard(pending.instanceId, "ENEMY_NEXUS")
+                    dispatchTargetedCard(pending, "ENEMY_NEXUS")
                     pendingTargetCard = null
                     pendingFirstUnitId = null
                 } else {
@@ -1085,41 +1242,36 @@ fun CombatScreen(
         )
 
         // LAYER 6: Bottom-Left Player Nameplate + PoC Powers + Emote + Stacked Deck Pile + Graveyard
-        val playerTurnBorder by animateColorAsState(
-            targetValue = if (combat.priorityHolder == PriorityHolder.PLAYER) AccentGold else BorderSubtle,
-            animationSpec = tween(durationMillis = 150),
-            label = "player_turn_hud_border"
-        )
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = safeStart + GameSpacing.sm, bottom = safeBottom + GameSpacing.sm)
+                .padding(start = safeStart + 8.dp, bottom = safeBottom + 6.dp)
                 .zIndex(20f),
-            verticalArrangement = Arrangement.spacedBy(GameSpacing.xs)
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            // Active Emote Speech Bubble
             AnimatedVisibility(
                 visible = activeEmote != null,
                 enter = fadeIn(tween(150)),
-                exit = fadeOut(tween(200))
+                exit = fadeOut(tween(250))
             ) {
                 activeEmote?.let { emote ->
                     Surface(
-                        shape = RoundedCornerShape(GameRadius.control),
-                        color = SurfaceOverlay,
-                        border = BorderStroke(1.dp, BorderGoldMuted)
+                        shape = RoundedCornerShape(8.dp),
+                        color = HextechGold.copy(alpha = 0.94f),
+                        border = BorderStroke(1.dp, ParchmentWhite)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = GameSpacing.sm, vertical = GameSpacing.xs),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(GameSpacing.xs)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Icon(emote.icon, contentDescription = emote.label, tint = AccentGold, modifier = Modifier.size(13.dp))
+                            Icon(emote.icon, contentDescription = emote.label, tint = DarkButtonInk, modifier = Modifier.size(13.dp))
                             Text(
                                 text = emote.label,
-                                fontFamily = PlusJakartaSansFamily,
                                 fontSize = (descFontSize.value * 0.88f).coerceAtLeast(9f).sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                color = DarkButtonInk,
                                 maxLines = 1
                             )
                         }
@@ -1129,25 +1281,26 @@ fun CombatScreen(
 
             Row(
                 verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(GameSpacing.sm)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Player Nameplate Banner + Active PoC Powers + Emote Button
                 Surface(
-                    shape = RoundedCornerShape(GameRadius.control),
-                    color = SurfaceOverlay,
-                    border = BorderStroke(1.dp, playerTurnBorder),
-                    shadowElevation = 0.dp
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xE8243854),
+                    border = BorderStroke(1.3.dp, HextechGold.copy(alpha = 0.85f)),
+                    shadowElevation = 6.dp
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = GameSpacing.sm, vertical = GameSpacing.xs),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(GameSpacing.xs)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
                             text = championName,
-                            fontFamily = CinzelFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = (descFontSize.value * 0.95f).coerceIn(10f, 13.5f).sp,
-                            color = AccentGold,
+                            style = fantasyHeadingStyle(
+                                fontSize = (descFontSize.value * 0.95f).coerceIn(10f, 13.5f).sp,
+                                color = HextechGoldBright
+                            ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -1155,7 +1308,7 @@ fun CombatScreen(
                         if (combat.activePowers.isNotEmpty()) {
                             Row(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(GameRadius.badge))
+                                    .clip(RoundedCornerShape(4.dp))
                                     .clickable { showMatchInfoDialog = true }
                                     .padding(horizontal = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -1163,9 +1316,9 @@ fun CombatScreen(
                             ) {
                                 combat.activePowers.take(3).forEach { _ ->
                                     Icon(
-                                        imageVector = Icons.Outlined.Bolt,
-                                        contentDescription = "Sức mạnh đang kích hoạt",
-                                        tint = AccentIce,
+                                        imageVector = Icons.Default.Bolt,
+                                        contentDescription = "Sức Mạnh Đang Kích Hoạt",
+                                        tint = ArcaneCyan,
                                         modifier = Modifier.size(13.dp)
                                     )
                                 }
@@ -1179,14 +1332,14 @@ fun CombatScreen(
                                 .testTag("emote_button")
                                 .clickable { showEmotePicker = !showEmotePicker },
                             shape = CircleShape,
-                            color = SurfaceElevated,
-                            border = BorderStroke(1.dp, BorderGoldMuted)
+                            color = Color(0xFF3D3428),
+                            border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.7f))
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = Icons.Outlined.EmojiEmotions,
-                                    contentDescription = "Biểu cảm",
-                                    tint = AccentGold,
+                                    imageVector = Icons.Default.EmojiEmotions,
+                                    contentDescription = "Biểu Cảm",
+                                    tint = HextechGoldBright,
                                     modifier = Modifier.size(15.dp)
                                 )
                             }
@@ -1194,6 +1347,7 @@ fun CombatScreen(
                     }
                 }
 
+                // Stacked Deck Pile beside lower-left stone border
                 StackedDeckPile(
                     cardCount = combat.playerDrawPile.size,
                     deckWidth = vh(7.2f).coerceIn(26.dp, 38.dp),
@@ -1201,31 +1355,32 @@ fun CombatScreen(
                     fontSize = (descFontSize.value * 0.92f).coerceAtLeast(10f).sp
                 )
 
+                // Compact Graveyard Pill
                 Surface(
                     modifier = Modifier
                         .minimumInteractiveComponentSize()
                         .testTag("graveyard_button")
                         .clickable { showGraveyardDialog = true },
-                    shape = RoundedCornerShape(GameRadius.control),
-                    color = SurfaceOverlay,
-                    border = BorderStroke(1.dp, BorderSubtle)
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xD9273D5E),
+                    border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.6f))
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = GameSpacing.sm, vertical = GameSpacing.xs),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(GameSpacing.xs)
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Layers,
-                            contentDescription = "Nghĩa địa",
-                            tint = TextSecondary,
+                            imageVector = Icons.Default.Layers,
+                            contentDescription = "Nghĩa Địa",
+                            tint = MutedSilver,
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
                             text = "${combat.playerGraveyard.size + combat.enemyGraveyard.size}",
-                            style = statNumericStyle(
+                            style = tabularStatStyle(
                                 fontSize = (descFontSize.value * 0.85f).coerceAtLeast(9.5f).sp,
-                                color = TextPrimary
+                                color = ParchmentWhite
                             )
                         )
                     }
@@ -1233,13 +1388,18 @@ fun CombatScreen(
             }
         }
 
-        // LAYER 7: Right-Edge Clean Obsidian Mana & Turn Action Column (above hand layer)
+        // LAYER 7: Right-Edge Iconic Circular Pass/Action & Mechanical Mana Dial (above hand layer)
         val dialHeight = vh(49f).coerceIn(148.dp, 240.dp)
-        val dialWidth = (dialHeight * 0.96f).coerceIn(152.dp, 196.dp)
+        val dialWidth = (dialHeight * 0.98f).coerceIn(152.dp, 224.dp)
+        val actionDiameter = (dialHeight * 0.44f).coerceIn(56.dp, 88.dp)
 
-        TacticalManaActionColumn(
+        RightManaActionDial(
             combat = combat,
-            panelWidth = dialWidth,
+            dialWidth = dialWidth,
+            dialHeight = dialHeight,
+            actionDiameter = actionDiameter,
+            descFontSize = descFontSize,
+            statFontSize = statFontSize,
             onEnterAttack = onEnterAttack,
             onCancelAttack = onCancelAttack,
             onCommitAttack = onCommitAttack,
@@ -1247,11 +1407,11 @@ fun CombatScreen(
             onPassTurn = onPassTurn,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = safeEnd + GameSpacing.xs)
+                .padding(end = safeEnd + 4.dp)
                 .zIndex(38f)
         )
 
-        // LAYER 7B: Center-Screen Turn & Combat Phase Banner (Sentence case, non-touch-blocking Box)
+        // LAYER 7B: Center-Screen Turn & Combat Phase Banner (Tới lượt bạn / Tới lượt đối thủ / Tấn công / Phòng thủ)
         var centerBannerLabel by remember { mutableStateOf<String?>(null) }
         var centerBannerSubtitle by remember { mutableStateOf<String?>(null) }
         var centerBannerIsPlayer by remember { mutableStateOf(true) }
@@ -1267,20 +1427,20 @@ fun CombatScreen(
             val bannerSpec: Triple<String, String?, Boolean>? = when {
                 combat.phase == CombatPhase.GAME_OVER -> null
                 combat.phase == CombatPhase.COMBAT_DECLARE_ATTACK_PHASE && combat.playerInitiatedCombat ->
-                    Triple("Tấn công", "Chọn quân xuất kích", true)
+                    Triple("TẤN CÔNG", "Chọn quân xuất kích", true)
                 combat.phase == CombatPhase.COMBAT_DECLARE_BLOCK_PHASE &&
                     !combat.playerInitiatedCombat &&
                     combat.priorityHolder == PriorityHolder.PLAYER &&
                     !combat.blockCommitted ->
-                    Triple("Phòng thủ", "Xếp quân chặn đòn địch", false)
+                    Triple("PHÒNG THỦ", "Xếp quân chặn đòn địch", false)
                 combat.phase == CombatPhase.COMBAT_DECLARE_BLOCK_PHASE &&
                     combat.playerInitiatedCombat &&
                     combat.priorityHolder == PriorityHolder.ENEMY ->
-                    Triple("Tấn công", "Đối thủ đang chọn quân chặn", true)
+                    Triple("TẤN CÔNG", "Đối thủ đang chọn quân chặn", true)
                 combat.phase == CombatPhase.MAIN_ACTION_PHASE && combat.priorityHolder == PriorityHolder.PLAYER ->
-                    Triple("Tới lượt bạn", if (combat.playerHasAttackToken) "Bạn đang giữ kiếm tấn công" else null, true)
+                    Triple("TỚI LƯỢT BẠN", if (combat.playerHasAttackToken) "Bạn đang giữ Kiếm Tấn Công" else null, true)
                 combat.phase == CombatPhase.MAIN_ACTION_PHASE && combat.priorityHolder == PriorityHolder.ENEMY ->
-                    Triple("Tới lượt đối thủ", null, false)
+                    Triple("TỚI LƯỢT ĐỐI THỦ", null, false)
                 else -> null
             }
             if (bannerSpec != null && bannerSpec.first != centerBannerLabel) {
@@ -1300,39 +1460,49 @@ fun CombatScreen(
 
         AnimatedVisibility(
             visible = centerBannerLabel != null,
-            enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.92f, animationSpec = tween(160)),
-            exit = fadeOut(tween(180)) + scaleOut(targetScale = 0.96f, animationSpec = tween(160)),
+            enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.86f, animationSpec = tween(180)),
+            exit = fadeOut(tween(240)) + scaleOut(targetScale = 0.94f, animationSpec = tween(220)),
             modifier = Modifier
                 .align(Alignment.Center)
                 .zIndex(72f)
         ) {
-            val accent = if (centerBannerIsPlayer) AccentGold else SemanticDanger
+            val accent = if (centerBannerIsPlayer) HextechGoldBright else CrimsonNexus
             Box(
                 modifier = Modifier
                     .testTag("center_turn_phase_banner")
-                    .clip(RoundedCornerShape(GameRadius.card))
-                    .background(SurfaceOverlay)
-                    .border(1.dp, accent, RoundedCornerShape(GameRadius.card))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xF20B1322))
+                    .border(2.2.dp, accent, RoundedCornerShape(16.dp))
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = GameSpacing.xl, vertical = GameSpacing.sm),
+                    modifier = Modifier
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    Color.Transparent,
+                                    accent.copy(alpha = 0.26f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                        .padding(horizontal = 32.dp, vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(GameSpacing.xs)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
                         text = centerBannerLabel.orEmpty(),
-                        fontFamily = CinzelFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = if (centerBannerIsPlayer) AccentGold else TextPrimary
+                        style = fantasyHeadingStyle(
+                            fontSize = 19.sp,
+                            color = if (centerBannerIsPlayer) HextechGoldBright else ParchmentWhite
+                        ),
+                        letterSpacing = 1.6.sp
                     )
                     centerBannerSubtitle?.let { sub ->
                         Text(
                             text = sub,
-                            fontFamily = PlusJakartaSansFamily,
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (centerBannerIsPlayer) AccentIce else SemanticDanger
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (centerBannerIsPlayer) ArcaneCyan else Color(0xFFFCA5A5)
                         )
                     }
                 }
@@ -1411,28 +1581,28 @@ fun CombatScreen(
             activePendingCard != null &&
                 activePendingCard.template.effectType == CardEffectType.SINGLE_COMBAT_STRIKE &&
                 pendingFirstUnitId == null ->
-                "Chọn đồng minh đánh cặp cho ${activePendingCard.template.name}"
+                "Chọn ĐỒNG MINH đánh cặp cho ${activePendingCard.template.name}"
             activePendingCard != null &&
                 activePendingCard.template.effectType == CardEffectType.SINGLE_COMBAT_STRIKE ->
-                "Chọn kẻ địch đối đầu cho ${activePendingCard.template.name}"
+                "Chọn KẺ ĐỊCH đối đầu cho ${activePendingCard.template.name}"
             activePendingCard != null && (activePendingCard.template.effectType == CardEffectType.DEAL_DAMAGE_ANY ||
                 activePendingCard.template.effectType == CardEffectType.DRAIN) ->
-                "Chọn quân địch hoặc Nhà Chính địch cho ${activePendingCard.template.name}"
+                "Chọn QUÂN ĐỊCH hoặc NHÀ CHÍNH ĐỊCH cho ${activePendingCard.template.name}"
             activePendingCard != null ->
                 "Chọn mục tiêu cho ${activePendingCard.template.name}"
             activeChallenger != null ->
                 if (activeChallenger.keywords.contains(Keyword.CHALLENGER)) {
-                    "Chọn quân địch để ${activeChallenger.template.name} kéo vào Thách Đấu"
+                    "Chọn QUÂN ĐỊCH để ${activeChallenger.template.name} kéo vào Thách Đấu"
                 } else {
-                    "Chọn quân địch Dễ Bị Tổn Thương để ${activeChallenger.template.name} kéo"
+                    "Chọn quân ĐỊCH Dễ Bị Tổn Thương để ${activeChallenger.template.name} kéo"
                 }
             else -> null
         }
 
         AnimatedVisibility(
             visible = promptMessage != null,
-            enter = fadeIn(tween(150)),
-            exit = fadeOut(tween(150)),
+            enter = fadeIn(tween(120)),
+            exit = fadeOut(tween(180)),
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = safeTop + vh(8.5f))
@@ -1440,29 +1610,28 @@ fun CombatScreen(
         ) {
             Surface(
                 modifier = Modifier.testTag("targeting_prompt_banner"),
-                shape = RoundedCornerShape(GameRadius.control),
-                color = SurfaceOverlay,
-                border = BorderStroke(1.dp, AccentIce),
-                shadowElevation = 0.dp
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xEE12243E),
+                border = BorderStroke(1.5.dp, ArcaneCyan),
+                shadowElevation = 8.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = GameSpacing.md, vertical = GameSpacing.xs),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(GameSpacing.sm)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
                         text = promptMessage ?: "",
-                        fontFamily = PlusJakartaSansFamily,
                         fontSize = descFontSize,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
+                        fontWeight = FontWeight.Bold,
+                        color = ParchmentWhite
                     )
                     if (activePendingCard?.template?.effectType == CardEffectType.DEAL_DAMAGE_ANY ||
                         activePendingCard?.template?.effectType == CardEffectType.DRAIN
                     ) {
                         Button(
                             onClick = {
-                                onPlayTargetedCard(activePendingCard.instanceId, "ENEMY_NEXUS")
+                                dispatchTargetedCard(activePendingCard, "ENEMY_NEXUS")
                                 pendingTargetCard = null
                                 pendingFirstUnitId = null
                             },
@@ -1470,18 +1639,12 @@ fun CombatScreen(
                                 .height(36.dp)
                                 .minimumInteractiveComponentSize()
                                 .testTag("target_enemy_nexus_button"),
-                            shape = RoundedCornerShape(GameRadius.control),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = SemanticDanger,
-                                contentColor = TextPrimary
+                                containerColor = CrimsonNexus,
+                                contentColor = ParchmentWhite
                             )
                         ) {
-                            Text(
-                                "Nhà Chính địch",
-                                fontFamily = PlusJakartaSansFamily,
-                                fontSize = (descFontSize.value * 0.9f).sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            Text("Nhà Chính Địch", fontSize = (descFontSize.value * 0.9f).sp, fontWeight = FontWeight.Bold)
                         }
                     }
                     Button(
@@ -1497,18 +1660,12 @@ fun CombatScreen(
                             .height(36.dp)
                             .minimumInteractiveComponentSize()
                             .testTag("cancel_target_button"),
-                        shape = RoundedCornerShape(GameRadius.control),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = SurfaceElevated,
-                            contentColor = AccentGold
+                            containerColor = Color(0xFF2B3E5A),
+                            contentColor = HextechGoldBright
                         )
                     ) {
-                        Text(
-                            "Hủy chọn",
-                            fontFamily = PlusJakartaSansFamily,
-                            fontSize = (descFontSize.value * 0.9f).sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Text("Hủy Chọn", fontSize = (descFontSize.value * 0.9f).sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -1518,24 +1675,23 @@ fun CombatScreen(
         AnimatedVisibility(
             visible = dragWarningText != null,
             enter = fadeIn(tween(120)),
-            exit = fadeOut(tween(180)),
+            exit = fadeOut(tween(220)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = vh(24f))
                 .zIndex(80f)
         ) {
             Surface(
-                shape = RoundedCornerShape(GameRadius.control),
-                color = SurfaceOverlay,
-                border = BorderStroke(1.dp, SemanticDanger)
+                shape = RoundedCornerShape(10.dp),
+                color = CrimsonNexus.copy(alpha = 0.94f),
+                border = BorderStroke(1.dp, ParchmentWhite)
             ) {
                 Text(
                     text = dragWarningText ?: "",
-                    fontFamily = PlusJakartaSansFamily,
                     fontSize = descFontSize,
-                    fontWeight = FontWeight.SemiBold,
-                    color = SemanticDanger,
-                    modifier = Modifier.padding(horizontal = GameSpacing.md, vertical = GameSpacing.xs)
+                    fontWeight = FontWeight.Bold,
+                    color = ParchmentWhite,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
         }
@@ -1675,6 +1831,18 @@ fun CombatScreen(
             )
         }
 
+        // Spell & Skill Cast / Impact VFX Overlay (non-touch-blocking)
+        SpellSkillEffectOverlay(
+            events = activeSpellVfx,
+            topBannerOffset = safeTop + vh(8.5f),
+            onFinished = { finishedId ->
+                activeSpellVfx.removeAll { it.id == finishedId }
+            },
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(74f)
+        )
+
         // Champion Level-Up (Lv2) Showcase Overlay Animation
         activeLevelUpBanner?.let { leveledChamp ->
             ChampionLevelUpBannerOverlay(
@@ -1734,17 +1902,25 @@ private fun EnemyFannedCardBacks(
                     .size(width = cardWidth, height = cardHeight)
                     .offset(y = (abs(idx - mid) * 1.5f).dp)
                     .graphicsLayer { rotationZ = angle }
-                    .clip(RoundedCornerShape(GameRadius.badge))
-                    .background(SurfaceBase)
-                    .border(1.dp, BorderGoldMuted, RoundedCornerShape(GameRadius.badge)),
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color(0xFF1C3359), Color(0xFF0C172B))
+                        )
+                    )
+                    .border(1.1.dp, HextechGold.copy(alpha = 0.85f), RoundedCornerShape(4.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Canvas(modifier = Modifier.fillMaxSize().padding(GameSpacing.xs)) {
+                Canvas(modifier = Modifier.fillMaxSize().padding(3.dp)) {
                     if (size.width <= 1f || size.height <= 1f) return@Canvas
                     drawCircle(
-                        color = AccentGold.copy(alpha = 0.55f),
-                        radius = size.minDimension * 0.25f,
-                        style = Stroke(1.dp.toPx())
+                        color = Color(0x5500BFFF),
+                        radius = size.minDimension * 0.25f
+                    )
+                    drawCircle(
+                        color = HextechGold.copy(alpha = 0.7f),
+                        radius = size.minDimension * 0.28f,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(1.2f)
                     )
                 }
             }

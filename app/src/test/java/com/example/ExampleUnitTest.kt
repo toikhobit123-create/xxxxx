@@ -3614,7 +3614,11 @@ class ExampleUnitTest {
         val afterAiBlock = EnemyAIController.executeTurn(afterCommit)
         assertTrue(afterAiBlock.blockCommitted)
         assertEquals(1, afterAiBlock.blockPairings.size)
-        val afterSkillAndCombat = CombatEngine.passPriority(afterAiBlock)
+        assertEquals(PriorityHolder.ENEMY, afterAiBlock.priorityHolder)
+        assertEquals(1, afterAiBlock.spellStack.size)
+        val afterSkillAndCombat = EnemyAIController.executeTurn(afterAiBlock)
+        assertTrue(afterSkillAndCombat.spellStack.isEmpty())
+        assertEquals(CombatPhase.MAIN_ACTION_PHASE, afterSkillAndCombat.phase)
         assertEquals(7, afterSkillAndCombat.enemyNexusHp) // Glacial Storm Lv1 dealt exact 1 dmg to Enemy Nexus (8 -> 7)
 
         // Next Round Start: regularMana reaches 10 -> isEnlightened == true & Anivia levels up to 4|6 (Skill deals 2)
@@ -3867,6 +3871,87 @@ class ExampleUnitTest {
         val strongBlocker = UnitOnBoard("e_strong", CardCatalog.getCard("card_cithria"), false, 3, 5, 5, emptySet())
         assertFalse(weakBlocker.canBlockAttacker(revenantUnit))
         assertTrue(strongBlocker.canBlockAttacker(revenantUnit))
+    }
+
+    @Test
+    fun `aniviaGlacialStormAutoAppliesAfterEnemyBlockWithNoActionAtLv1AndLv2`() {
+        val adv = AdventureCatalog.getAdventure("adv_demacia_outskirts")
+        val node = adv.mapNodes.first { it.id == "d_fight_1a" }
+
+        // 1. Lv1 Anivia attacks, AI pulls blocker with no spells -> auto-applies 1 damage Glacial Storm + combat
+        val aniviaLv1 = UnitOnBoard("u_anv1", CardCatalog.getCard("card_anivia"), true, 3, 5, 5, setOf(Keyword.ELEMENTAL), isLeveledUp = false)
+        val enemyBlocker = UnitOnBoard("e_blk", CardCatalog.getCard("card_cithria"), false, 1, 5, 5, emptySet())
+        val lv1State = CombatState(
+            encounterNode = node,
+            adventure = adv,
+            championId = "champ_anivia",
+            starLevel = 1,
+            equippedRelics = emptyList(),
+            activePowers = emptyList(),
+            mutators = emptyList(),
+            round = 6,
+            playerNexusHp = 40,
+            playerMaxHp = 40,
+            enemyNexusHp = 6,
+            enemyMaxHp = 20,
+            playerMana = 6,
+            playerMaxMana = 6,
+            playerHasAttackToken = true,
+            playerBoard = listOf(aniviaLv1),
+            enemyBoard = listOf(enemyBlocker),
+            enemyHand = emptyList(),
+            phase = CombatPhase.MAIN_ACTION_PHASE,
+            priorityHolder = PriorityHolder.PLAYER
+        )
+        val lv1Commit = CombatEngine.commitPlayerAttack(
+            CombatEngine.toggleUnitAttack(CombatEngine.enterAttackDeclaration(lv1State), "u_anv1")
+        )
+        val lv1AfterAiBlock = EnemyAIController.executeTurn(lv1Commit)
+        assertTrue(lv1AfterAiBlock.blockCommitted)
+        assertEquals(PriorityHolder.ENEMY, lv1AfterAiBlock.priorityHolder)
+        val lv1Resolved = EnemyAIController.executeTurn(lv1AfterAiBlock)
+        assertTrue(lv1Resolved.spellStack.isEmpty())
+        assertEquals(CombatPhase.MAIN_ACTION_PHASE, lv1Resolved.phase)
+        assertEquals(5, lv1Resolved.enemyNexusHp) // Lv1 Glacial Storm deals 1 dmg
+        assertEquals(1, lv1Resolved.enemyBoard.single().health) // 5 - 1 (storm) - 3 (anivia) = 1
+
+        // 2. Lv2 Anivia attacks with empty enemy board (no action) -> auto-applies 2 damage Glacial Storm + 4 attack dmg
+        val aniviaLv2 = UnitOnBoard("u_anv2", CardCatalog.getCard("card_anivia"), true, 4, 6, 6, setOf(Keyword.ELEMENTAL), isLeveledUp = true)
+        val lv2State = lv1State.copy(
+            round = 10,
+            enemyNexusHp = 20,
+            playerMana = 10,
+            playerMaxMana = 10,
+            isEnlightened = true,
+            playerBoard = listOf(aniviaLv2),
+            enemyBoard = emptyList()
+        )
+        val lv2Commit = CombatEngine.commitPlayerAttack(
+            CombatEngine.toggleUnitAttack(CombatEngine.enterAttackDeclaration(lv2State), "u_anv2")
+        )
+        val lv2AfterAiBlock = EnemyAIController.executeTurn(lv2Commit)
+        assertTrue(lv2AfterAiBlock.blockCommitted)
+        assertEquals(PriorityHolder.ENEMY, lv2AfterAiBlock.priorityHolder)
+        val lv2Resolved = EnemyAIController.executeTurn(lv2AfterAiBlock)
+        assertTrue(lv2Resolved.spellStack.isEmpty())
+        assertEquals(CombatPhase.MAIN_ACTION_PHASE, lv2Resolved.phase)
+        assertEquals(14, lv2Resolved.enemyNexusHp) // 20 - 2 (storm Lv2) - 4 (anivia Lv2) = 14
+
+        // 3. When AI DOES cast a reactive spell during block, player still retains response priority
+        val enemyReactiveBlocker = UnitOnBoard("e_blk2", CardCatalog.getCard("card_cithria"), false, 2, 2, 2, emptySet())
+        val reactiveState = lv1State.copy(
+            enemyNexusHp = 20,
+            enemyMana = 4,
+            enemyMaxMana = 4,
+            enemyHand = listOf(CardCatalog.getCard("card_steel_tempest")),
+            enemyBoard = listOf(enemyReactiveBlocker)
+        )
+        val reactiveCommit = CombatEngine.commitPlayerAttack(
+            CombatEngine.toggleUnitAttack(CombatEngine.enterAttackDeclaration(reactiveState), "u_anv1")
+        )
+        val afterAiReactive = EnemyAIController.executeTurn(reactiveCommit)
+        assertEquals(PriorityHolder.PLAYER, afterAiReactive.priorityHolder)
+        assertEquals(2, afterAiReactive.spellStack.size)
     }
 }
 

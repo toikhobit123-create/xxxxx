@@ -24,6 +24,16 @@ object EnemyAIController {
             return handleBlockDeclaration(state, logs)
         }
 
+        if (state.phase == CombatPhase.COMBAT_DECLARE_BLOCK_PHASE &&
+            state.playerInitiatedCombat &&
+            state.blockCommitted &&
+            !state.playerCastSpellInBlock &&
+            state.spellStack.any { it.card.id == "skill_glacial_storm" }
+        ) {
+            logs.add("Địch không có hành động — Bão Băng Giá tự động áp dụng!")
+            return CombatEngine.resolveSpellStack(state.copy(combatLog = logs.takeLast(16)))
+        }
+
         if (state.spellStack.isNotEmpty()) {
             return handleSpellStackResponse(state, logs)
         }
@@ -385,6 +395,15 @@ object EnemyAIController {
                 blockCommitted = true,
                 confirmedBlockedAttackerIds = confirmedIds,
                 enemyCastBurstInBlock = false
+            )
+        }
+
+        if (blockedState.spellStack.any { it.card.id == "skill_glacial_storm" }) {
+            logs.add("Địch đã kéo ${pairings.size} quân chặn và không có hành động — Bão Băng Giá chuẩn bị áp dụng.")
+            return blockedState.copy(
+                priorityHolder = PriorityHolder.ENEMY,
+                consecutivePasses = 0,
+                combatLog = logs.takeLast(16)
             )
         }
 

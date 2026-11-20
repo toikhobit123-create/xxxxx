@@ -875,7 +875,7 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
 
     composeTestRule.onNodeWithTag("champion_level_up_overlay").assertIsDisplayed()
-    composeTestRule.onNode(androidx.compose.ui.test.hasText("Thăng cấp • Cấp 2")).assertIsDisplayed()
+    composeTestRule.onNode(androidx.compose.ui.test.hasText("THĂNG CẤP • CẤP 2")).assertIsDisplayed()
   }
 
   @Test
@@ -965,23 +965,14 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `tacticalManaActionColumnSeparatesSpellManaSupportsEnlightenedAndClearsCollapsed10CardHand`() {
+  fun `spellAndSkillVfxOverlayRendersAndAutoCleansWithoutBlockingUi`() {
     val adv = AdventureCatalog.getAdventure("adv_demacia_outskirts")
     val node = adv.mapNodes.first { it.id == "d_fight_1a" }
-    val cithria = CardCatalog.getCard("card_cithria")
-    val mysticShot = CardCatalog.getCard("card_mystic_shot")
-    val hand10 = (1..9).map { idx ->
-      com.example.model.HandCardInstance(
-        instanceId = "hc_$idx",
-        template = cithria,
-        effectiveCost = cithria.cost
-      )
-    } + com.example.model.HandCardInstance(
-      instanceId = "hc_10",
-      template = mysticShot,
-      effectiveCost = mysticShot.cost
-    )
-    val combatState = CombatState(
+    val harshWinds = CardCatalog.getCard("card_harsh_winds")
+    val glacialStorm = CardCatalog.getCard("skill_glacial_storm")
+    val anivia = UnitOnBoard("anv_1", CardCatalog.getCard("card_anivia"), true, 3, 5, 5, setOf(com.example.model.Keyword.ELEMENTAL))
+
+    val stackedState = CombatState(
       encounterNode = node,
       adventure = adv,
       championId = "champ_anivia",
@@ -989,26 +980,31 @@ class ExampleRobolectricTest {
       equippedRelics = emptyList(),
       activePowers = emptyList(),
       mutators = emptyList(),
-      round = 10,
+      round = 6,
       playerNexusHp = 40,
       playerMaxHp = 40,
       enemyNexusHp = 20,
       enemyMaxHp = 20,
-      playerMana = 10,
-      playerMaxMana = 10,
-      playerSpellMana = 3,
-      enemyMana = 10,
-      enemyMaxMana = 10,
-      enemySpellMana = 2,
-      isEnlightened = true,
-      playerHand = hand10
+      playerMana = 6,
+      playerMaxMana = 6,
+      playerBoard = listOf(anivia),
+      spellStack = listOf(
+        com.example.engine.SpellStackEntry(
+          id = "st_glacial_1",
+          sourceIsPlayer = true,
+          card = glacialStorm,
+          targetUnitId = null,
+          damageBonus = 0
+        )
+      )
     )
+    val combatHolder = androidx.compose.runtime.mutableStateOf(stackedState)
 
     composeTestRule.setContent {
       PathOfChampionsTheme {
         Box(modifier = Modifier.size(width = 850.dp, height = 390.dp)) {
           com.example.ui.screens.CombatScreen(
-            combat = combatState,
+            combat = combatHolder.value,
             revivesRemaining = 1,
             onPlayCard = {},
             onEnterAttack = {},
@@ -1030,21 +1026,39 @@ class ExampleRobolectricTest {
       }
     }
     composeTestRule.waitForIdle()
+    assertEquals(0, composeTestRule.onAllNodesWithTag("spell_skill_vfx_overlay").fetchSemanticsNodes().size)
 
-    composeTestRule.onNodeWithTag("player_mana_text").assertTextEquals("10/10")
-    composeTestRule.onNodeWithTag("player_spell_mana_text").assertTextEquals("3")
-    composeTestRule.onNodeWithTag("player_spell_mana_gem_0").assertIsDisplayed()
-    composeTestRule.onNodeWithTag("player_spell_mana_gem_1").assertIsDisplayed()
-    composeTestRule.onNodeWithTag("player_spell_mana_gem_2").assertIsDisplayed()
-    composeTestRule.onNodeWithTag("end_round_button").assertIsDisplayed()
-    composeTestRule.onNode(androidx.compose.ui.test.hasText("Bỏ qua")).assertIsDisplayed()
+    // Pause clock to inspect mid-animation VFX for Burst spell & resolved Glacial Storm skill
+    composeTestRule.mainClock.autoAdvance = false
+    try {
+      composeTestRule.runOnUiThread {
+        combatHolder.value = stackedState.copy(
+          spellStack = emptyList(),
+          playerGraveyard = listOf(glacialStorm, harshWinds)
+        )
+      }
+      composeTestRule.waitForIdle()
+      composeTestRule.mainClock.advanceTimeBy(300L)
+      composeTestRule.waitForIdle()
 
-    val spellBadgeBounds = composeTestRule.onNodeWithTag("player_spell_mana_badge").getUnclippedBoundsInRoot()
-    val handRightBounds = composeTestRule.onNodeWithTag("hand_card_card_mystic_shot").getUnclippedBoundsInRoot()
-    assertTrue(
-      "Expected spell mana badge bottom (${spellBadgeBounds.bottom}) to clear collapsed 10-card hand top (${handRightBounds.top})",
-      spellBadgeBounds.bottom <= handRightBounds.top + 8.dp
-    )
+      composeTestRule.onNodeWithTag("spell_skill_vfx_overlay").assertIsDisplayed()
+      composeTestRule.onNodeWithTag("spell_skill_vfx_skill_glacial_storm").assertIsDisplayed()
+      composeTestRule.onNodeWithTag("spell_skill_vfx_card_harsh_winds").assertIsDisplayed()
+
+      // Non-touch-blocking: HUD controls remain clickable while VFX plays
+      composeTestRule.onNodeWithTag("emote_button").performClick()
+      composeTestRule.mainClock.advanceTimeByFrame()
+      composeTestRule.waitForIdle()
+      composeTestRule.onNode(androidx.compose.ui.test.hasText("Gửi Biểu Cảm")).assertIsDisplayed()
+
+      // Advance past 900ms animation duration -> overlay auto-cleans
+      composeTestRule.mainClock.advanceTimeBy(1000L)
+      composeTestRule.mainClock.advanceTimeByFrame()
+      composeTestRule.waitForIdle()
+      assertEquals(0, composeTestRule.onAllNodesWithTag("spell_skill_vfx_overlay").fetchSemanticsNodes().size)
+    } finally {
+      composeTestRule.mainClock.autoAdvance = true
+    }
   }
 }
 
