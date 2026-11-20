@@ -9,7 +9,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -673,8 +672,10 @@ fun TacticalManaActionColumn(
                     Surface(
                         modifier = Modifier
                             .size(48.dp)
-                            .gameClickable(                                enabled = isPlayerPriority && combat.spellStack.isEmpty(),
-                                    onClick = onCancelAttack
+                            .gameClickable(
+                                enabled = isPlayerPriority && combat.spellStack.isEmpty(),
+                                ripple = false,
+                                onClick = onCancelAttack
                             ),
                         shape = RoundedCornerShape(GameRadius.control),
                         color = SurfaceElevated,

@@ -25,14 +25,16 @@ fun rememberGameTapFeedback(): () -> Unit {
 }
 
 /**
- * A [clickable] wrapper with consistent ripple indication and game-tap haptics.
- * Use for all standard tap targets so press feedback stays uniform UI-wide.
+ * A [clickable] wrapper with game-tap haptics. Card tiles and board slots use
+ * [ripple] = false so they keep only the tactile tick plus their own border /
+ * scale animations (card-game feel); buttons keep the Material ripple.
  */
 @Composable
 fun Modifier.gameClickable(
     enabled: Boolean = true,
     onClickLabel: String? = null,
     role: Role? = null,
+    ripple: Boolean = true,
     onClick: () -> Unit,
 ): Modifier {
     val interactionSource = remember { MutableInteractionSource() }
@@ -40,7 +42,7 @@ fun Modifier.gameClickable(
     return this.then(
         Modifier.clickable(
             interactionSource = interactionSource,
-            indication = ripple(),
+            indication = if (ripple) ripple() else null,
             enabled = enabled,
             onClickLabel = onClickLabel,
             role = role,

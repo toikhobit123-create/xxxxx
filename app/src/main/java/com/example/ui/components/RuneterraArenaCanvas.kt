@@ -1136,7 +1136,7 @@ fun RightManaActionDial(
                         if (canInitiateAttack) {
                             Modifier
                                 .testTag("enter_attack_button")
-                                .gameClickable(onClick = onEnterAttack)
+                                .gameClickable(ripple = false, onClick = onEnterAttack)
                         } else {
                             Modifier
                         }
