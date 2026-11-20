@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.ui.components.gameClickable
+
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -293,7 +295,7 @@ fun RunResourceHud(
                         modifier = Modifier
                             .minimumInteractiveComponentSize()
                             .testTag("run_deck_button")
-                            .clickable(onClick = onOpenDeck),
+                            .gameClickable(onClick = onOpenDeck),
                         shape = RoundedCornerShape(GameRadius.control),
                         color = SurfaceElevated,
                         border = BorderStroke(1.dp, BorderGoldMuted)
@@ -413,7 +415,7 @@ fun RelicSlotCard(
             .then(
                 if (unlocked) Modifier
                     .minimumInteractiveComponentSize()
-                    .clickable(onClick = onClick)
+                    .gameClickable(onClick = onClick)
                 else Modifier
             ),
         shape = RoundedCornerShape(GameRadius.card),
@@ -671,9 +673,8 @@ fun TacticalManaActionColumn(
                     Surface(
                         modifier = Modifier
                             .size(48.dp)
-                            .clickable(
-                                enabled = isPlayerPriority && combat.spellStack.isEmpty(),
-                                onClick = onCancelAttack
+                            .gameClickable(                                enabled = isPlayerPriority && combat.spellStack.isEmpty(),
+                                    onClick = onCancelAttack
                             ),
                         shape = RoundedCornerShape(GameRadius.control),
                         color = SurfaceElevated,
@@ -711,7 +712,7 @@ fun TacticalManaActionColumn(
                                 if (canInitiateAttack) {
                                     Modifier
                                         .testTag("enter_attack_button")
-                                        .clickable(onClick = onEnterAttack)
+                                        .gameClickable(onClick = onEnterAttack)
                                 } else Modifier
                             ),
                         shape = RoundedCornerShape(GameRadius.control),
@@ -739,7 +740,7 @@ fun TacticalManaActionColumn(
                         .height(48.dp)
                         .minimumInteractiveComponentSize()
                         .testTag(btnTag)
-                        .clickable(enabled = btnEnabled, onClick = btnAction),
+                        .gameClickable(enabled = btnEnabled, onClick = btnAction),
                     shape = RoundedCornerShape(GameRadius.control),
                     color = turnBtnBg,
                     border = BorderStroke(1.dp, if (btnEnabled) BorderGoldMuted else BorderSubtle)

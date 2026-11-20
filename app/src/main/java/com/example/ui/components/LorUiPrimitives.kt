@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -96,7 +97,7 @@ fun LorMetallicPanel(
             .then(
                 if (onClick != null) Modifier
                     .minimumInteractiveComponentSize()
-                    .clickable(onClick = onClick)
+                    .gameClickable(onClick = onClick)
                 else Modifier
             ),
         shape = shape,
@@ -128,6 +129,7 @@ fun LorBrassButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    val onTapHaptic = rememberGameTapFeedback()
     val scale by animateFloatAsState(
         targetValue = if (pressed && enabled) 0.97f else 1f,
         animationSpec = tween(durationMillis = 150),
@@ -163,7 +165,10 @@ fun LorBrassButton(
                 enabled = enabled,
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = onClick
+                onClick = {
+                    onTapHaptic()
+                    onClick()
+                }
             ),
         shape = RoundedCornerShape(GameRadius.control),
         color = containerColor,
@@ -208,6 +213,7 @@ fun LorSecondaryMetalButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    val onTapHaptic = rememberGameTapFeedback()
     val scale by animateFloatAsState(
         targetValue = if (pressed && enabled) 0.97f else 1f,
         animationSpec = tween(durationMillis = 150),
@@ -232,7 +238,10 @@ fun LorSecondaryMetalButton(
                 enabled = enabled,
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = onClick
+                onClick = {
+                    onTapHaptic()
+                    onClick()
+                }
             ),
         shape = RoundedCornerShape(GameRadius.control),
         color = if (pressed && enabled) SurfaceBase else SurfaceElevated,
@@ -293,7 +302,7 @@ fun LorCarvedTopBar(
                     modifier = Modifier
                         .size(48.dp)
                         .then(if (backTestTag != null) Modifier.testTag(backTestTag) else Modifier)
-                        .clickable(onClick = onBack),
+                        .gameClickable(onClick = onBack),
                     contentAlignment = Alignment.Center
                 ) {
                     Surface(

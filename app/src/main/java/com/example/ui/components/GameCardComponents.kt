@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.ui.components.gameClickable
+
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -177,7 +179,7 @@ fun CardTile(
             .then(
                 if (onClick != null) Modifier
                     .minimumInteractiveComponentSize()
-                    .clickable(onClick = onClick)
+                    .gameClickable(onClick = onClick)
                 else Modifier
             ),
         shape = RoundedCornerShape(GameRadius.card),
@@ -1373,7 +1375,7 @@ private fun FilterTag(label: String, selected: Boolean, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .minimumInteractiveComponentSize()
-            .clickable(onClick = onClick),
+            .gameClickable(onClick = onClick),
         shape = RoundedCornerShape(GameRadius.control),
         color = if (selected) SurfaceElevated else BgDeep,
         border = BorderStroke(1.dp, if (selected) BorderGoldMuted else BorderSubtle)

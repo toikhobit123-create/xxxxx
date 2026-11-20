@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.components.gameClickable
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -493,7 +495,7 @@ private fun ChampionLeftRailColumn(
                     .size(48.dp)
                     .padding(5.dp)
                     .testTag("champ_detail_back_button")
-                    .clickable(onClick = onBack),
+                    .gameClickable(onClick = onBack),
                 shape = CircleShape,
                 color = Color(0xCC0D1626),
                 border = BorderStroke(1.4.dp, HextechGold.copy(alpha = 0.85f))
@@ -647,7 +649,7 @@ private fun CompactChampionIdentityBar(
                 .size(48.dp)
                 .padding(4.dp)
                 .testTag("champ_detail_back_button")
-                .clickable(onClick = onBack),
+                .gameClickable(onClick = onBack),
             shape = CircleShape,
             color = Color(0xCC0D1626),
             border = BorderStroke(1.4.dp, HextechGold.copy(alpha = 0.8f))
@@ -1048,7 +1050,7 @@ private fun StarPowerFlatRow(
                     modifier = Modifier
                         .minimumInteractiveComponentSize()
                         .then(if (actionTestTag != null) Modifier.testTag(actionTestTag) else Modifier)
-                        .clickable(onClick = onAction),
+                        .gameClickable(onClick = onAction),
                     shape = CircleShape,
                     color = Color(0xFF152946),
                     border = BorderStroke(1.3.dp, ArcaneCyan)
@@ -1110,7 +1112,7 @@ private fun SlimDeckCardStrip(
                 },
                 shape = RoundedCornerShape(5.dp)
             )
-            .clickable(onClick = onClick)
+            .gameClickable(onClick = onClick)
     ) {
         if (artRes != null) {
             Image(
@@ -1293,7 +1295,7 @@ private fun ChampionRightCardShowcase(
                         modifier = Modifier
                             .size(width = 48.dp, height = 52.dp)
                             .testTag("relic_socket_$idx")
-                            .clickable(enabled = unlocked) { onRelicSlotClick(idx) },
+                            .gameClickable(enabled = unlocked, onClickLabel = "Chọn phụ kiện") { onRelicSlotClick(idx) },
                         shape = HexagonShape,
                         color = if (unlocked) Color(0xE8142138) else Color(0xD00B111C),
                         border = BorderStroke(1.8.dp, borderColor),

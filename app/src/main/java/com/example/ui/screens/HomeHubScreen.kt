@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.components.gameClickable
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -241,7 +243,7 @@ fun HomeHubScreen(
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
                                 .testTag("abandon_saved_run_button")
-                                .clickable(onClick = onAbandonRun)
+                                .gameClickable(onClickLabel = "Bỏ run đang lưu", onClick = onAbandonRun)
                                 .padding(horizontal = GameSpacing.sm, vertical = GameSpacing.sm),
                             contentAlignment = Alignment.Center
                         ) {
@@ -645,7 +647,7 @@ private fun CompactUtilityPill(
         modifier = Modifier
             .size(48.dp)
             .testTag(testTag)
-            .clickable(onClick = onClick),
+            .gameClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Surface(

@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.ui.components.gameClickable
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
@@ -610,7 +612,7 @@ private fun SeamlessIceBattlefieldZone(
                                             if (isChallengerSelected) ArcaneCyan else LegendaryAmber.copy(alpha = 0.45f),
                                             RoundedCornerShape(8.dp)
                                         )
-                                        .clickable(enabled = canPullHint) { onPlayerUnitClick(atk) },
+                                        .gameClickable(enabled = canPullHint) { onPlayerUnitClick(atk) },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -867,7 +869,7 @@ private fun SeamlessIceBattlefieldZone(
                                             if (isTargeted || canDraggedBlockThis) ArcaneCyan else CrimsonNexus.copy(alpha = 0.65f),
                                             RoundedCornerShape(8.dp)
                                         )
-                                        .clickable(enabled = isPlayerPriority && !combat.blockCommitted) {
+                                        .gameClickable(enabled = isPlayerPriority && !combat.blockCommitted) {
                                             onEnemyUnitClick(enemyAtk)
                                         },
                                     contentAlignment = Alignment.Center
